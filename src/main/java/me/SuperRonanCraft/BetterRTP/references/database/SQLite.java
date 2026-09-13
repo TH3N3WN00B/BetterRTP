@@ -4,22 +4,23 @@ import lombok.NonNull;
 import me.SuperRonanCraft.BetterRTP.BetterRTP;
 import me.SuperRonanCraft.BetterRTP.versions.AsyncHandler;
 
-import java.io.File;
-import java.io.IOException;
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.Iterator;
 import java.util.List;
 import java.util.logging.Level;
 
 public abstract class SQLite {
 
-    private static final String db_file_name = "database";
+    @NonNull
+    private final DATABASE_TYPE type;
     List<String> tables;
     private boolean loaded;
 
     public String addMissingColumns = "ALTER TABLE %table% ADD COLUMN %column% %type%";
-
-    private final DATABASE_TYPE type;
 
     public SQLite(DATABASE_TYPE type) {
         this.type = type;
@@ -29,36 +30,14 @@ public abstract class SQLite {
 
     // SQL creation stuff
     public Connection getSQLConnection() {
-        return getLocal();
-    }
-
-    private Connection getLocal() {
-        File dataFolder = new File(BetterRTP.getInstance().getDataFolder().getPath() + File.separator + "data", db_file_name + ".db");
-        if (!dataFolder.exists()){
-            try {
-                dataFolder.getParentFile().mkdir();
-                dataFolder.createNewFile();
-            } catch (IOException e) {
-                BetterRTP.getInstance().getLogger().log(Level.SEVERE, "File write error: " + dataFolder.getPath());
-                e.printStackTrace();
-            }
-        }
-        try {
-            Class.forName("org.sqlite.JDBC");
-            return DriverManager.getConnection("jdbc:sqlite:" + dataFolder);
-        } catch (SQLException ex) {
-            BetterRTP.getInstance().getLogger().log(Level.SEVERE, "SQLite exception on initialize", ex);
-        } catch (ClassNotFoundException ex) {
-            BetterRTP.getInstance().getLogger().log(Level.SEVERE, "You need the SQLite JBDC library. Google it Ronan...");
-        }
-        return null;
+        return SQLiteConnector.getConnection();
     }
 
     public void load() {
         loaded = false;
         tables = getTables();
 
-        // Don't do anything is no columns to generate
+        // Don't do anything if no columns to generate
         if (tables.isEmpty()) {
             loaded = true;
             return;
@@ -70,37 +49,38 @@ public abstract class SQLite {
                 Statement s = connection.createStatement();
                 for (String table : tables) {
                     s.executeUpdate(getCreateTable(table));
-                    //s.executeUpdate(createTable_bank);
                     for (Enum<?> c : getColumns(type)) { //Add missing columns dynamically
                         try {
                             String _name = getColumnName(type, c);
                             String _type = getColumnType(type, c);
-                            //System.out.println("Adding " + _name);
                             s.executeUpdate(addMissingColumns.replace("%table%", table).replace("%column%", _name).replace("%type%", _type));
-                        } catch (SQLException e) {
-                            //e.printStackTrace();
+                        } catch (SQLException ignored) {
+                            //Column already exists
                         }
                     }
                     BetterRTP.debug("Database " + type.name() + ":" + table + " configured and loaded!");
                 }
                 s.close();
+                //Subclasses may run migrations/cleanups right after the tables exist
+                afterCreate(connection);
             } catch (SQLException e) {
                 e.printStackTrace();
             } finally {
-                if (connection != null) {
-                    try {
-                        connection.close();
-                    } catch (SQLException e) {
-                        e.printStackTrace();
-                    }
-                }
+                close(null, null, connection);
             }
             initialize();
             loaded = true;
         });
     }
 
-    private String getCreateTable(String table) {
+    /**
+     * This is the last process to run after creation when the table schema is up to date.
+     */
+    protected void afterCreate(Connection connection) {
+    }
+
+    //Force a UNIQUE constraint on tables that need one (append BEFORE the closing parenthesis)
+    protected String getCreateTable(String table) {
         String str = "CREATE TABLE IF NOT EXISTS `" + table + "` (";
         Enum<?>[] columns = getColumns(type);
         for (Enum<?> c : columns) {
@@ -112,7 +92,6 @@ public abstract class SQLite {
             else
                 str = str.concat(", ");
         }
-        //System.out.println("MySQL column string: `" + str + "`");
         return str;
     }
 
@@ -170,41 +149,6 @@ public abstract class SQLite {
         return success;
     }
 
-    boolean sqlUpdate(List<String> statement1, List<List<Object>> params1) {
-        Connection conn = null;
-        PreparedStatement ps = null;
-        boolean success = true;
-        try {
-            conn = getSQLConnection();
-            for (int i = 0; i < statement1.size(); i++) {
-                String statement = statement1.get(i);
-                List<Object> params = params1.get(i);
-                if (ps == null)
-                    ps = conn.prepareStatement(statement);
-                else
-                    ps.addBatch(statement);
-                if (params != null) {
-                    Iterator<Object> it = params.iterator();
-                    int paramIndex = 1;
-                    while (it.hasNext()) {
-                        ps.setObject(paramIndex, it.next());
-                        paramIndex++;
-                    }
-                }
-            }
-            assert ps != null;
-            ps.executeUpdate();
-            ps.close();
-        } catch (SQLException ex) {
-            BetterRTP.getInstance().getLogger().log(Level.SEVERE, Errors.sqlConnectionExecute(), ex);
-            success = false;
-            ex.printStackTrace();
-        } finally {
-            close(ps, null, conn);
-        }
-        return success;
-    }
-
     public void initialize() { //Let in console know if its all setup or not
         Connection conn = null;
         PreparedStatement ps = null;
@@ -224,11 +168,12 @@ public abstract class SQLite {
     protected void close(PreparedStatement ps, ResultSet rs, Connection conn) {
         try {
             if (ps != null) ps.close();
-            if (conn != null) conn.close();
             if (rs != null) rs.close();
         } catch (SQLException ex) {
             Error.close(BetterRTP.getInstance(), ex);
         }
+        //Return the connection to the pool instead of closing it
+        SQLiteConnector.release(conn);
     }
 
     public boolean isLoaded() {

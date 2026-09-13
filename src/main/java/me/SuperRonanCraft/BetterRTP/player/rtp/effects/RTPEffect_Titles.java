@@ -2,6 +2,8 @@ package me.SuperRonanCraft.BetterRTP.player.rtp.effects;
 
 import me.SuperRonanCraft.BetterRTP.references.file.FileOther;
 import me.SuperRonanCraft.BetterRTP.references.messages.Message;
+import me.SuperRonanCraft.BetterRTP.versions.AsyncHandler;
+import net.kyori.adventure.title.Title;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
 
@@ -43,14 +45,13 @@ public class RTPEffect_Titles {
     }
 
     private void show(Player p, String title, String sub) {
-        // int fadeIn = getPl().text.getFadeIn();
-        // int stay = text.getStay();
-        // int fadeOut = text.getFadeOut();
-        title = Message.color(title);
-        sub = Message.color(sub);
-        //Message.smsTitle(p, Arrays.asList(title, sub));
-        p.sendTitle(title, sub);
-        // player.sendTitle(title, subTitle, fadeIn, stay, fadeOut);
+        AsyncHandler.syncAtEntity(p, () -> {
+            try {
+                p.showTitle(Title.title(Message.toComponent(Message.color(title)), Message.toComponent(Message.color(sub))));
+            } catch (Throwable e) {
+                p.sendTitle(Message.color(title), Message.color(sub));
+            }
+        });
     }
 
     public enum RTP_TITLE_TYPE {

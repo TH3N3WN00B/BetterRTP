@@ -2,12 +2,15 @@ package me.SuperRonanCraft.BetterRTP.references.rtpinfo;
 
 import io.papermc.lib.PaperLib;
 import me.SuperRonanCraft.BetterRTP.BetterRTP;
+import me.SuperRonanCraft.BetterRTP.references.database.DatabaseChunkData.ChunkDataInfo;
 import me.SuperRonanCraft.BetterRTP.references.rtpinfo.worlds.RTPWorld;
 import me.SuperRonanCraft.BetterRTP.references.rtpinfo.worlds.WORLD_TYPE;
+import me.SuperRonanCraft.BetterRTP.versions.AsyncHandler;
 import org.bukkit.*;
 import org.bukkit.block.Biome;
 import org.bukkit.block.Block;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
@@ -70,6 +73,16 @@ public class RandomLocation {
     }
 
     public static Location getSafeLocation(WORLD_TYPE type, World world, Location loc, int minY, int maxY, List<String> biomes) {
+        //Fast pre-filter based on previously cached chunk data (filled by '/rtp dev' and successful teleports).
+        //Only applied with a margin so it never discards a location that could still be valid.
+        ChunkDataInfo info = BetterRTP.getInstance().getDatabaseHandler().getDatabaseChunks()
+                .getCached(world.getName(), loc.getBlockX() >> 4, loc.getBlockZ() >> 4);
+        if (info != null) {
+            if (info.maxY < minY - 15 || info.maxY > maxY + 15)
+                return null;
+            if (!info.isBiomeAllowed(biomes))
+                return null;
+        }
         switch (type) { //Get a Y position and check for bad blocks
             case NETHER: return getLocAtNether(loc.getBlockX(), loc.getBlockZ(), minY, maxY, world, biomes);
             case NORMAL:
@@ -138,37 +151,82 @@ public class RandomLocation {
         //FALSE MEANS NO BAD BLOCKS/BIOME WHERE FOUND!
     }
 
-    public static void runChunkTest() {
-        BetterRTP.getInstance().getLogger().info("---------------- Starting chunk test!");
-        World world = Bukkit.getWorld("world");
-        cacheChunkAt(world, 32, -32, -32, -32);
+    private static final int CHUNK_TEST_RANGE = 32; //From -32 to 32 on both axis (65 * 65 chunks)
+    private static final int CHUNK_BATCH_SIZE = 128;
+
+    public static void runChunkTest(World world) {
+        if (world == null) {
+            BetterRTP.getInstance().getLogger().warning("Could not start the chunk test: invalid world!");
+            return;
+        }
+        BetterRTP.getInstance().getLogger().info("---------------- Starting chunk test on world: " + world.getName());
+        List<ChunkDataInfo> buffer = new ArrayList<>();
+        cacheChunkAt(world, CHUNK_TEST_RANGE, -CHUNK_TEST_RANGE, -CHUNK_TEST_RANGE, -CHUNK_TEST_RANGE, buffer);
     }
 
-    private static void cacheTask(World world, int goal, int start, int xat, int zat) {
+    private static void cacheTask(World world, int goal, int start, int xat, int zat, List<ChunkDataInfo> buffer) {
         zat += 1;
         if (zat > goal) {
             zat = start;
             xat += 1;
         }
         if (xat <= goal)
-            cacheChunkAt(world, goal, start, xat, zat);
+            cacheChunkAt(world, goal, start, xat, zat, buffer);
+        else {
+            flushCacheBuffer(buffer);
+            BetterRTP.getInstance().getLogger().info("---------------- Chunk test finished!");
+        }
     }
 
-    private static void cacheChunkAt(World world, int goal, int start, int xat, int zat) {
+    private static void cacheChunkAt(World world, int goal, int start, int xat, int zat, List<ChunkDataInfo> buffer) {
         CompletableFuture<Chunk> task = PaperLib.getChunkAtAsync(new Location(world, xat * 16, 0, zat * 16));
         task.thenAccept(chunk -> {
             try {
                 ChunkSnapshot snapshot = chunk.getChunkSnapshot(true, true, false);
                 int maxy = snapshot.getHighestBlockYAt(8, 8);
                 Biome biome = snapshot.getBiome(8, 8);
-                //BetterRTP.getInstance().getLogger().info("Added " + chunk.getX() + " " + chunk.getZ());
-                BetterRTP.getInstance().getDatabaseHandler().getDatabaseChunks().addChunk(chunk, maxy, biome);
+                buffer.add(new ChunkDataInfo(world.getName(), chunk.getX(), chunk.getZ(), biome.name(), maxy));
+                if (buffer.size() >= CHUNK_BATCH_SIZE)
+                    flushCacheBuffer(buffer);
             } catch (Throwable e) {
                 e.printStackTrace();
-                throw new RuntimeException();
-                //BetterRTP.getInstance().getLogger().info("Tried Adding " + chunk.getX() + " " + chunk.getZ());
             }
-        }).thenRun(() -> cacheTask(world, goal, start, xat, zat));
+        }).thenRun(() -> cacheTask(world, goal, start, xat, zat, buffer));
+    }
+
+    private static void flushCacheBuffer(List<ChunkDataInfo> buffer) {
+        if (buffer.isEmpty())
+            return;
+        List<ChunkDataInfo> toFlush = new ArrayList<>(buffer);
+        buffer.clear();
+        BetterRTP.getInstance().getDatabaseHandler().getDatabaseChunks().addChunks(toFlush);
+    }
+
+    /**
+     * Stores the chunk behind the given location for later use by the pre-filter of getSafeLocation.
+     */
+    public static void cacheChunkAsync(World world, Location loc) {
+        if (world == null || loc == null)
+            return;
+        final String worldName = world.getName();
+        final int cx = loc.getBlockX() >> 4;
+        final int cz = loc.getBlockZ() >> 4;
+        if (BetterRTP.getInstance().getDatabaseHandler().getDatabaseChunks().getCached(worldName, cx, cz) != null)
+            return;
+        AsyncHandler.async(() -> {
+            try {
+                World w = Bukkit.getWorld(worldName);
+                if (w == null)
+                    return;
+                Chunk chunk = PaperLib.getChunkAtAsync(new Location(w, cx * 16, 0, cz * 16)).join();
+                ChunkSnapshot snapshot = chunk.getChunkSnapshot(true, true, false);
+                int bx = loc.getBlockX() & 15;
+                int bz = loc.getBlockZ() & 15;
+                BetterRTP.getInstance().getDatabaseHandler().getDatabaseChunks()
+                        .addChunk(chunk, snapshot.getHighestBlockYAt(bx, bz), snapshot.getBiome(bx, bz));
+            } catch (Throwable ignored) {
+            }
+        });
     }
 
 }

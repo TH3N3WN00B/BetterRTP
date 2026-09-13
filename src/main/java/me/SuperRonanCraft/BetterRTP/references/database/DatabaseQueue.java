@@ -57,6 +57,17 @@ public class DatabaseQueue extends SQLite {
             super.load();
     }
 
+    @Override
+    protected void afterCreate(Connection connection) {
+        try (Statement st = connection.createStatement()) {
+            //Fast range lookups (world first, then x, then z)
+            st.executeUpdate("CREATE INDEX IF NOT EXISTS `queue_xyz` ON `" + tables.get(0) + "` (`"
+                    + COLUMNS.WORLD.name + "`, `" + COLUMNS.X.name + "`, `" + COLUMNS.Z.name + "`)");
+        } catch (SQLException e) {
+            BetterRTP.getInstance().getLogger().log(Level.WARNING, "Could not create index for queue table", e);
+        }
+    }
+
     public List<QueueData> getInRange(QueueRangeData range) {
         final List<QueueData> queueDataList = new ArrayList<>();
         try {
@@ -67,11 +78,16 @@ public class DatabaseQueue extends SQLite {
                 try {
                     conn = getSQLConnection();
                     ps = conn.prepareStatement("SELECT * FROM " + tables.get(0) + " WHERE "
-                            + COLUMNS.WORLD.name + " = '" + range.getWorld().getName() + "' AND "
-                            + COLUMNS.X.name + " BETWEEN " + range.getXLow() + " AND " + range.getXHigh()
-                            + " AND " + COLUMNS.Z.name + " BETWEEN " + range.getZLow() + " AND " + range.getZHigh()
+                            + COLUMNS.WORLD.name + " = ? AND "
+                            + COLUMNS.X.name + " BETWEEN ? AND ?"
+                            + " AND " + COLUMNS.Z.name + " BETWEEN ? AND ?"
                             + " ORDER BY RANDOM() LIMIT " + (QueueGenerator.queueMax + 1)
                     );
+                    ps.setString(1, range.getWorld().getName());
+                    ps.setInt(2, range.getXLow());
+                    ps.setInt(3, range.getXHigh());
+                    ps.setInt(4, range.getZLow());
+                    ps.setInt(5, range.getZHigh());
                     rs = ps.executeQuery();
                     while (rs.next()) {
                         long x = rs.getLong(COLUMNS.X.name);
@@ -134,9 +150,10 @@ public class DatabaseQueue extends SQLite {
                 paramIndex++;
             }
             ps.executeUpdate();
-            ResultSet rs = ps.getGeneratedKeys();
-            if (rs.next()) {
-                id = rs.getInt(1);
+            try (ResultSet rs = ps.getGeneratedKeys()) {
+                if (rs.next()) {
+                    id = rs.getInt(1);
+                }
             }
         } catch (SQLException ex) {
             BetterRTP.getInstance().getLogger().log(Level.SEVERE, Errors.sqlConnectionExecute(), ex);

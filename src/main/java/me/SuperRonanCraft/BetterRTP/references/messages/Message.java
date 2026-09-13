@@ -5,10 +5,14 @@ import lombok.NonNull;
 import me.SuperRonanCraft.BetterRTP.references.file.FileData;
 import me.SuperRonanCraft.BetterRTP.references.messages.placeholder.PlaceholderAnalyzer;
 import me.SuperRonanCraft.BetterRTP.versions.AsyncHandler;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.minimessage.MiniMessage;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.ChatColor;
 import org.bukkit.command.CommandSender;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -23,26 +27,31 @@ public interface Message {
     static void sms(Message messenger, CommandSender sendi, String msg) {
         if (!msg.isEmpty())
             AsyncHandler.sync(() ->
-                    sendi.sendMessage(placeholder(sendi, getPrefix(messenger) + msg)));
+                    sendComponent(sendi, parseComponent(sendi, getPrefix(messenger) + msg)));
     }
 
     static void sms(Message messenger, CommandSender sendi, String msg, Object placeholderInfo) {
         if (!msg.isEmpty())
             AsyncHandler.sync(() ->
-                    sendi.sendMessage(Objects.requireNonNull(placeholder(sendi, getPrefix(messenger) + msg, placeholderInfo))));
+                    sendComponent(sendi, parseComponent(sendi, getPrefix(messenger) + msg, placeholderInfo)));
     }
 
     static void sms(Message messenger, CommandSender sendi, String msg, List<Object> placeholderInfo) {
         if (!msg.isEmpty())
             AsyncHandler.sync(() ->
-                    sendi.sendMessage(placeholder(sendi, getPrefix(messenger) + msg, placeholderInfo)));
+                    sendComponent(sendi, parseComponent(sendi, getPrefix(messenger) + msg, placeholderInfo)));
     }
 
     static void sms(CommandSender sendi, List<String> msg, Object placeholderInfo) {
         if (msg != null && !msg.isEmpty()) {
             AsyncHandler.sync(() -> {
-                msg.forEach(str -> msg.set(msg.indexOf(str), placeholder(sendi, str, placeholderInfo)));
-                sendi.sendMessage(msg.toArray(new String[0]));
+                List<String> copy = new ArrayList<>(msg);
+                for (int i = 0; i < copy.size(); i++)
+                    copy.set(i, placeholder(sendi, copy.get(i), placeholderInfo));
+                for (String line : copy) {
+                    if (line != null && !line.isEmpty())
+                        sendComponent(sendi, toComponent(line));
+                }
             });
         }
     }
@@ -88,7 +97,6 @@ public interface Message {
                 i--;
             }
         }
-        //str.forEach(s -> str.set(str.indexOf(s), placeholder(p, s, info)));
         return str;
     }
 
@@ -117,8 +125,101 @@ public interface Message {
         return null;
     }
 
+    /**
+     * Turns any legacy string (after placeholders & colors were applied) into a parsed component.
+     * Won't throw - falls back to the legacy (ampersand) parser on failure.
+     */
+    static Component toComponent(String legacyColoredStr) {
+        if (legacyColoredStr == null || legacyColoredStr.isEmpty())
+            return Component.empty();
+        try {
+            return MiniMessage.miniMessage().deserialize(convertLegacyToMini(legacyColoredStr));
+        } catch (Throwable e) {
+            try {
+                return LegacyComponentSerializer.legacyAmpersand().deserialize(legacyColoredStr);
+            } catch (Throwable ignored) {
+                return Component.text(legacyColoredStr);
+            }
+        }
+    }
+
+    static Component parseComponent(@Nullable CommandSender p, String msg) {
+        return toComponent(placeholder(p, msg));
+    }
+
+    static Component parseComponent(@Nullable CommandSender p, String msg, @Nullable Object placeholderInfo) {
+        return toComponent(placeholder(p, msg, placeholderInfo));
+    }
+
+    static Component parseComponent(@Nullable CommandSender p, String msg, @NonNull List<Object> placeholderInfo) {
+        return toComponent(placeholder(p, msg, placeholderInfo));
+    }
+
+    static void sendComponent(CommandSender sendi, Component component) {
+        try {
+            sendi.sendMessage(component);
+        } catch (Throwable ignored) {
+        }
+    }
+
     static String color(String str) {
         return translateHexColorCodes(str);
+    }
+
+    //Converts the & codes used by legacy color() into MiniMessage tags so both formats can be mixed.
+    static String convertLegacyToMini(String original) {
+        String str = original;
+        //Hex: &x&a&b&c&d&e&f (14 characters)
+        Pattern hexPattern = Pattern.compile("&x(&[0-9a-fA-F]){6}");
+        Matcher hm = hexPattern.matcher(str);
+        while (hm.find()) {
+            StringBuilder code = new StringBuilder();
+            for (String part : hm.group(0).substring(2).split("&"))
+                if (!part.isEmpty())
+                    code.append(part.substring(0, 1));
+            str = str.substring(0, hm.start()) + "<color:#" + code + ">" + str.substring(hm.end());
+            hm = hexPattern.matcher(str);
+        }
+        //Formatting codes
+        str = str.replace("&k", "<obfuscated>");
+        str = str.replace("&l", "<bold>");
+        str = str.replace("&m", "<strikethrough>");
+        str = str.replace("&n", "<underlined>");
+        str = str.replace("&o", "<italic>");
+        while (str.contains("&&")) //Literal ampersand (already un-translated by translateAlternateColorCodes)
+            str = str.replace("&&", "&amp;");
+        //Color codes
+        StringBuilder sb = new StringBuilder();
+        Matcher cm = Pattern.compile("(&)([0-9a-fA-F])").matcher(str);
+        int last = 0;
+        while (cm.find()) {
+            sb.append(str, last, cm.start()).append(legacyColorToName(cm.group(2).toLowerCase().charAt(0)));
+            last = cm.end();
+        }
+        sb.append(str.substring(last));
+        return sb.toString();
+    }
+
+    private static String legacyColorToName(char code) {
+        switch (code) {
+            case '0': return "<black>";
+            case '1': return "<dark_blue>";
+            case '2': return "<dark_green>";
+            case '3': return "<dark_aqua>";
+            case '4': return "<dark_red>";
+            case '5': return "<dark_purple>";
+            case '6': return "<gold>";
+            case '7': return "<gray>";
+            case '8': return "<dark_gray>";
+            case '9': return "<blue>";
+            case 'a': return "<green>";
+            case 'b': return "<aqua>";
+            case 'c': return "<red>";
+            case 'd': return "<light_purple>";
+            case 'e': return "<yellow>";
+            case 'f': return "<white>";
+            default: return "";
+        }
     }
 
     //Thank you to zwrumpy on Spigot! (https://www.spigotmc.org/threads/hex-color-code-translate.449748/#post-4270781)

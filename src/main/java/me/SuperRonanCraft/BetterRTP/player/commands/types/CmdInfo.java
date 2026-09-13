@@ -8,6 +8,7 @@ import java.util.concurrent.CompletableFuture;
 
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
+import org.bukkit.Particle;
 import org.bukkit.World;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
@@ -38,7 +39,6 @@ import net.md_5.bungee.api.chat.ClickEvent;
 import net.md_5.bungee.api.chat.ComponentBuilder;
 import net.md_5.bungee.api.chat.HoverEvent;
 import net.md_5.bungee.api.chat.TextComponent;
-import xyz.xenondevs.particle.ParticleEffect;
 
 public class CmdInfo implements RTPCommand, RTPCommandHelpable {
 
@@ -107,45 +107,44 @@ public class CmdInfo implements RTPCommand, RTPCommandHelpable {
     //Particles
     private void infoParticles(CommandSender sendi) {
         List<String> info = new ArrayList<>();
-        // BetterRTP pl = BetterRTP.getInstance();
 
-        for (ParticleEffect eff : ParticleEffect.VALUES) {
-            if (info.isEmpty() || info.size() % 2 == 0) {
-                info.add("&7" + eff.name() + "&r");
-            } else
-                info.add("&f" + eff.name() + "&r");
+        int index = 0;
+        for (Particle eff : Particle.values()) {
+            info.add((index++ % 2 == 0 ? "&7" : "&f") + eff.name() + "&r");
         }
 
-        info.forEach(str ->
-                info.set(info.indexOf(str), Message.color(str)));
-        sendi.sendMessage(info.toString());
+        for (int i = 0; i < info.size(); i++)
+            info.set(i, Message.color(info.get(i)));
+        for (String line : info)
+            sendi.sendMessage(Message.toComponent(line));
     }
 
     //Shapes
     private void infoShapes(CommandSender sendi) {
         List<String> info = new ArrayList<>();
 
+        int index = 0;
         for (String shape : RTPEffect_Particles.shapeTypes) {
-            if (info.isEmpty() || info.size() % 2 == 0) {
-                info.add("&7" + shape + "&r");
-            } else
-                info.add("&f" + shape + "&r");
+            info.add((index++ % 2 == 0 ? "&7" : "&f") + shape + "&r");
         }
 
-        info.forEach(str ->
-                info.set(info.indexOf(str), Message.color(str)));
-        sendi.sendMessage(info.toString());
+        for (int i = 0; i < info.size(); i++)
+            info.set(i, Message.color(info.get(i)));
+        for (String line : info)
+            sendi.sendMessage(Message.toComponent(line));
     }
 
     //World
     public static void sendInfoWorld(CommandSender sendi, List<String> list, String label, String[] args) { //Send info
         boolean upload = Arrays.asList(args).contains("_UPLOAD_");
         list.add(0, "&e&m-----&6 BetterRTP &8| Info &e&m-----");
-        list.forEach(str -> list.set(list.indexOf(str), Message.color(str)));
+        for (int i = 0; i < list.size(); i++)
+            list.set(i, Message.color(list.get(i)));
 
         String cmd = "/" + label + " " + String.join(" ", args);
         if (!upload) {
-            sendi.sendMessage(list.toArray(new String[0]));
+            for (String line : list)
+                sendi.sendMessage(Message.toComponent(line));
             if (sendi instanceof Player) {
                 TextComponent component = new TextComponent(Message.color("&7- &7Click to upload command log to &flogs.ronanplugins.com"));
                 component.setClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND, cmd + " _UPLOAD_"));
@@ -156,7 +155,8 @@ public class CmdInfo implements RTPCommand, RTPCommandHelpable {
             }
         } else {
             list.add(0, "Command: " + cmd);
-            list.forEach(str -> list.set(list.indexOf(str), ChatColor.stripColor(str)));
+            for (int i = 0; i < list.size(); i++)
+                list.set(i, ChatColor.stripColor(list.get(i)));
             CompletableFuture.runAsync(() -> {
                 String key = LogUploader.post(list);
                 if (key == null) {
@@ -248,16 +248,15 @@ public class CmdInfo implements RTPCommand, RTPCommandHelpable {
     private void infoEffects(CommandSender sendi) {
         List<String> info = new ArrayList<>();
 
+        int index = 0;
         for (PotionEffectType effect : PotionEffectType.values()) {
-            if (info.isEmpty() || info.size() % 2 == 0) {
-                info.add("&7" + effect.getName() + "&r");
-            } else
-                info.add("&f" + effect.getName() + "&r");
+            info.add((index++ % 2 == 0 ? "&7" : "&f") + effect.getName() + "&r");
         }
 
-        info.forEach(str ->
-                info.set(info.indexOf(str), Message.color(str)));
-        sendi.sendMessage(info.toString());
+        for (int i = 0; i < info.size(); i++)
+            info.set(i, Message.color(info.get(i)));
+        for (String line : info)
+            sendi.sendMessage(Message.toComponent(line));
     }
 
     public List<String> tabComplete(CommandSender sendi, String[] args) {

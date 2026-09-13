@@ -9,6 +9,8 @@ import me.SuperRonanCraft.BetterRTP.references.Permissions;
 import me.SuperRonanCraft.BetterRTP.references.RTPLogger;
 import me.SuperRonanCraft.BetterRTP.references.WarningHandler;
 import me.SuperRonanCraft.BetterRTP.references.database.DatabaseHandler;
+import me.SuperRonanCraft.BetterRTP.references.database.SQLiteConnector;
+import me.SuperRonanCraft.BetterRTP.references.database.SQLiteExecutor;
 import me.SuperRonanCraft.BetterRTP.references.depends.DepEconomy;
 import me.SuperRonanCraft.BetterRTP.references.depends.DepPlaceholderAPI;
 import me.SuperRonanCraft.BetterRTP.references.file.Files;
@@ -69,6 +71,8 @@ public class BetterRTP extends JavaPlugin {
         invs.closeAll();
         queue.unload();
         rtpLogger.unload();
+        SQLiteExecutor.EXECUTOR.shutdownNow();
+        SQLiteConnector.shutdown();
     }
 
     private void registerDependencies() {

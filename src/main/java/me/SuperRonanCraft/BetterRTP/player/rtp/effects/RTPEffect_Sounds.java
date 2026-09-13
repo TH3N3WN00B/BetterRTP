@@ -42,6 +42,9 @@ public class RTPEffect_Sounds {
     }
 
     void playSound(Location loc, Player p, String sound) {
+        Sound sound_ = getSound(sound);
+        if (sound_ == null)
+            return;
         if (BetterRTP.getInstance().getSettings().isProtocolLibSounds()) {
             try {
                 ProtocolManager pm = ProtocolLibrary.getProtocolManager();
@@ -53,10 +56,10 @@ public class RTPEffect_Sounds {
                 packet.sendPacket(p);
             } catch (NoClassDefFoundError | Exception e) {
                 BetterRTP.getInstance().getLogger().severe("ProtocolLib Sounds is enabled in the effects.yml file, but no ProtocolLib plugin was found!");
-                p.playSound(p.getLocation(), getSound(sound), 1F, 1F);
+                p.playSound(p.getLocation(), sound_, 1F, 1F);
             }
         } else
-            p.playSound(p.getLocation(), getSound(sound), 1F, 1F);
+            p.playSound(p.getLocation(), sound_, 1F, 1F);
     }
 
     private Sound getSound(String sound) {

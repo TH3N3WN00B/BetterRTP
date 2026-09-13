@@ -7,12 +7,12 @@
     <groupId>me.SuperRonanCraft</groupId>
     <artifactId>BetterRTP</artifactId>
     <packaging>jar</packaging>
-    <version>3.6.13</version>
+    <version>3.6.14</version>
 
     <!-- Upload patches to https://repo.ronanplugins.com/#/ -->
 
     <properties>
-        <maven.compiler.release>8</maven.compiler.release>
+        <maven.compiler.release>21</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
@@ -82,8 +82,8 @@
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>3.14.0</version>
                 <configuration>
-                    <source>1.8</source>
-                    <target>1.8</target>
+                    <source>21</source>
+                    <target>21</target>
                 </configuration>
             </plugin>
         </plugins>
@@ -164,18 +164,11 @@
         </repository>
     </repositories>
     <dependencies>
-        <!--Spigot API-->
+        <!--Paper API (https://papermc.io) - 1.21.1+ -->
         <dependency>
-            <groupId>org.spigotmc</groupId>
-            <artifactId>spigot-api</artifactId>
-            <version>1.8.8-R0.1-SNAPSHOT</version>
-            <scope>provided</scope>
-        </dependency>
-        <!-- Spigot Stuff -->
-        <dependency>
-            <groupId>org.spigotmc</groupId>
-            <artifactId>spigot</artifactId>
-            <version>1.8.8-R0.1-SNAPSHOT</version>
+            <groupId>io.papermc.paper</groupId>
+            <artifactId>paper-api</artifactId>
+            <version>1.21.1-R0.1-SNAPSHOT</version>
             <scope>provided</scope>
         </dependency>
         <!-- Vault -->
@@ -274,14 +267,13 @@
             <version>97b96c9</version>
             <scope>provided</scope>
         </dependency>
-        <!-- Particles Library
-        https://github.com/ByteZ1337/ParticleLib
-        (https://github.com/ByteZ1337/ParticleLib/blob/master/src/main/java/xyz/xenondevs/particle/ParticleEffect.java) -->
+        <!-- Adventure MiniMessage (provided by Paper 1.21.1+ at runtime)
+        https://docs.advntr.dev/minimessage/ -->
         <dependency>
-            <groupId>xyz.xenondevs</groupId>
-            <artifactId>particle</artifactId>
-            <version>1.8.4</version>
-            <scope>compile</scope>
+            <groupId>net.kyori</groupId>
+            <artifactId>adventure-text-minimessage</artifactId>
+            <version>4.17.0</version>
+            <scope>provided</scope>
         </dependency>
         <!-- Lombok Support (@Getter & @Setter)-->
         <dependency>

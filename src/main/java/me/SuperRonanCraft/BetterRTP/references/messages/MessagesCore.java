@@ -62,8 +62,11 @@ public enum MessagesCore {
 
     public void send(CommandSender sendi, HashMap<String, String> placeholder_values) {
         String msg = Message_RTP.getLang().getString(pre + section);
-        for (String ph : placeholder_values.values())
-            msg = msg.replace(ph, placeholder_values.get(ph));
+        for (String ph : placeholder_values.keySet()) {
+            String replacement = placeholder_values.get(ph);
+            if (ph != null && replacement != null)
+                msg = msg.replace(ph, replacement);
+        }
         Message_RTP.sms(sendi, msg);
     }
 }

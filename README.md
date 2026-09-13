@@ -7,17 +7,21 @@ All language files are located [here](src/main/resources/lang)
 feel free to fork one of the language files and help translate!
 
 ## Libraries
-BetterRTP uses and is compiled with the following libraries:
+BetterRTP is compiled against and requires the following at runtime (provided by Paper 1.21.1+):
 
-- [ParticleLib](https://github.com/ByteZ1337/ParticleLib) (included) - Particles library by ByteZ1337. Find all supported particles [here](https://github.com/ByteZ1337/ParticleLib/blob/master/src/main/java/xyz/xenondevs/particle/ParticleEffect.java)
+- [Paper API](https://papermc.io/) 1.21.1+ - Compiles against Paper's API, which includes the Adventure/MiniMessage text libraries at runtime.
 - [PaperLib](https://github.com/PaperMC/PaperLib) (included) - Library for interfacing with PaperMC specific APIs, used for async chunk loading.
 - [FoliaLib](https://github.com/TechnicallyCoded/FoliaLib) (included) - Library for interfacing with Folia specific APIs, used for cross-platform timers.
 
-## Build instructions on Ubuntu
+## Supported Minecraft versions & Java
+- Minecraft **1.21.1** through **1.21.11** plus the newer **26.1.2** and **26.2** (Paper/Folia).
+- Java **21** is required to run. Ships particle rendering via the native Bukkit Particle API (ParticleLib is no longer required).
+
+## Build instructions (Ubuntu or any Maven setup)
 
 mvn clean install
 
-The file will be in the Target file.
+The file will be in the Target folder. Requires JDK 21+.
 
 ## Where's the Wiki?  
 The wiki is available [here](../../wiki)!

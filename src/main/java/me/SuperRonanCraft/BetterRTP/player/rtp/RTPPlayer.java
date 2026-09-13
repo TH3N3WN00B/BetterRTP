@@ -89,6 +89,8 @@ public class RTPPlayer {
         if (tpLoc != null && checkDepends(tpLoc)) {
             tpLoc.add(0.5, 0, 0.5); //Center location
             if (getPl().getEco().charge(player, worldPlayer)) {
+                //Remember this chunk so the next rtp in the area is faster
+                RandomLocation.cacheChunkAsync(worldPlayer.getWorld(), tpLoc);
                 //Successfully found a safe location, set cooldown and teleport player.
                 if (worldPlayer.getPlayerInfo().isApplyCooldown() && HelperRTP_Check.applyCooldown(player))
                     getPl().getCooldowns().add(player, worldPlayer.getWorld());

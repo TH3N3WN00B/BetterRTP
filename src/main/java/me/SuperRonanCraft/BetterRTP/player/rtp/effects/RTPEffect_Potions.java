@@ -55,14 +55,18 @@ public class RTPEffect_Potions { //Potions AND Invincibility
             if (invincibleEnabled)
                 HelperPlayer.getData(p).setInvincibleEndTime(System.currentTimeMillis() + (invincibleTime * 1000L));
             if (potionEnabled) {
-                List<PotionEffect> effects = new ArrayList<>();
-                for (PotionEffectType e : potionEffects.keySet()) {
-                    Integer[] mods = potionEffects.get(e);
-                    int duration = mods[0];
-                    int amplifier = mods[1];
-                    effects.add(new PotionEffect(e, duration, amplifier, false, false));
+                try {
+                    List<PotionEffect> effects = new ArrayList<>();
+                    for (PotionEffectType e : potionEffects.keySet()) {
+                        Integer[] mods = potionEffects.get(e);
+                        int duration = mods[0];
+                        int amplifier = mods[1];
+                        effects.add(new PotionEffect(e, duration, amplifier, false, false));
+                    }
+                    p.addPotionEffects(effects);
+                } catch (IllegalArgumentException e) {
+                    BetterRTP.getInstance().getLogger().info("Could not apply a potion effect from your effects.yml: " + e.getMessage());
                 }
-                p.addPotionEffects(effects);
             }
         });
     }

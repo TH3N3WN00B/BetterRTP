@@ -100,8 +100,10 @@ public class QueueHandler implements Listener { //Randomly queues up some safe l
         int radius_min = rtpWorld.getMinRadius();
         int x = loc.getBlockX();
         int z = loc.getBlockZ();
-        int square_dist = (center_x - x) * 2 + (center_z - z) * 2;
-        return square_dist <= radius * 2 && square_dist >= radius_min * 2;
+        long square_dist = ((long) center_x - x) * (center_x - x) + ((long) center_z - z) * (center_z - z);
+        long max = ((long) radius) * radius;
+        long min = ((long) radius_min) * radius_min;
+        return square_dist <= max && square_dist >= min;
     }
 
     public static boolean isInSquare(Location loc, RTPWorld rtpWorld) {

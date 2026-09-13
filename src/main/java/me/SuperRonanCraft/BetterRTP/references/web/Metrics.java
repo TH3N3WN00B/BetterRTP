@@ -166,7 +166,11 @@ public class Metrics {
         int playerAmount = Bukkit.getOnlinePlayers().size();
         int onlineMode = Bukkit.getOnlineMode() ? 1 : 0;
         String bukkitVersion = Bukkit.getVersion();
-        bukkitVersion = bukkitVersion.substring(bukkitVersion.indexOf("MC: ") + 4, bukkitVersion.length() - 1);
+        if (bukkitVersion.contains("MC: ")) {
+            try {
+                bukkitVersion = bukkitVersion.substring(bukkitVersion.indexOf("MC: ") + 4, bukkitVersion.length() - 1);
+            } catch (IndexOutOfBoundsException ignored) { }
+        }
 
         // OS/Java specific data
         String javaVersion = System.getProperty("java.version");
